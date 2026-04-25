@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-# إعداد الصفحة
 st.set_page_config(page_title="مجموعة أبو الفتوح للتجارة", layout="wide")
 
-# الرابط المباشر (بعد ما جعلته عاماً في الصورة الأخيرة)
+# الرابط المباشر
 sheet_id = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
 URL = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Users"
 
@@ -13,18 +12,20 @@ if 'auth' not in st.session_state:
 
 if not st.session_state.auth:
     st.title("🔐 دخول نظام أبو الفتوح")
-    user_input = st.text_input("اسم المستخدم")
-    pass_input = st.text_input("كلمة المرور", type="password")
+    user_input = st.text_input("اسم المستخدم (جرب admin)")
+    pass_input = st.text_input("كلمة المرور (جرب 123)", type="password")
     
     if st.button("تسجيل الدخول"):
         try:
-            # قراءة مباشرة كملف CSV
             df = pd.read_csv(URL)
-            df.columns = df.columns.str.strip()
+            # تحويل كل شيء لحروف صغيرة ومسح المسافات لضمان الدخول
+            df['الاسم'] = df['الاسم'].astype(str).str.strip().str.lower()
+            df['كلمة_المرور'] = df['كلمة_المرور'].astype(str).str.strip().str.lower()
             
-            # مطابقة البيانات
-            match = df[(df['الاسم'].astype(str).str.strip() == user_input.strip()) & 
-                       (df['كلمة_المرور'].astype(str).str.strip() == pass_input.strip())]
+            u_in = user_input.strip().lower()
+            p_in = pass_input.strip().lower()
+            
+            match = df[(df['الاسم'] == u_in) & (df['كلمة_المرور'] == p_in)]
             
             if not match.empty:
                 st.session_state.auth = True
@@ -32,8 +33,9 @@ if not st.session_state.auth:
                 st.session_state.user_full_name = user_input
                 st.rerun()
             else:
-                st.error("بيانات الدخول غير صحيحة")
-        except Exception as e:
-            st.error("تأكد من وجود صفحة باسم 'Users' وأعمدة: الاسم، كلمة_المرور")
+                st.error("بيانات الدخول غير مطابقة لما في الجدول")
+        except:
+            st.error("فشل في قراءة الشيت.. تأكد من اتصال الإنترنت")
 else:
-    st.header(f"مرحباً بك في لوحة تحكم أبو الفتوح: {st.session_state.user_role}")
+    st.success(f"مرحباً بك يا دكتور في لوحة التحكم")
+    st.balloons() # احتفالاً بالدخول
