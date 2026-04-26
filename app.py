@@ -5,51 +5,57 @@ import pandas as pd
 # 1. إعداد الاتصال بجوجل شيت
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 2. تعريف إيميل المدير (اكتب إيميلك هنا بدقة)
-ADMIN_EMAIL = "meamer1990@gmail.com
+# 2. تعريف إيميل المدير (تأكد من وجود علامات التنصيص في البداية والنهاية)
+ADMIN_EMAIL = "meamer1990@gmail.com" 
+
 # 3. دالة جلب البيانات من شيت Users_Database
 def get_users():
     return conn.read(worksheet="Users_Database")
 
-# --- بداية البرنامج ---
+# --- واجهة البرنامج ---
 st.title("نظام مجموعة أبو الفتوح الذكي 🛡️")
 
-# محاكاة لعملية الدخول (ستستبدل لاحقاً بزر جوجل لوجن)
+# إدخال الإيميل للدخول
 user_email = st.text_input("سجل دخولك بإدخال البريد الإلكتروني:")
 
+# التحقق من أن المستخدم أدخل إيميل بالفعل
 if user_email:
+    # جلب البيانات من الشيت
     df = get_users()
-    # البحث عن المستخدم في الشيت
+    
+    # البحث عن الإيميل المدخل في الشيت
     user_data = df[df['Email'] == user_email]
 
     if not user_data.empty:
         status = user_data.iloc[0]['Status']
         role = user_data.iloc[0]['User_Role']
 
+        # إذا كان الحساب مفعل
         if status == "Approved":
             st.success(f"أهلاً بك.. صفتك في النظام: {role}")
 
-            # --- لوحة التحكم الخاصة بك (تظهر للمدير فقط) ---
+            # --- ظهور لوحة الإدارة للمدير فقط ---
             if user_email == ADMIN_EMAIL:
                 st.sidebar.header("⚙️ لوحة الإدارة")
-                menu = st.sidebar.selectbox("القائمة الإدارية", ["الرئيسية", "الموافقة على الأعضاء"])
+                menu = st.sidebar.selectbox("القائمة الإدارية", ["الرئيسية", "طلبات الأعضاء"])
                 
-                if menu == "الموافقة على الأعضاء":
-                    st.subheader("طلبات الانضمام المعلقة")
+                if menu == "طلبات الأعضاء":
+                    st.subheader("إدارة طلبات الانضمام")
+                    # عرض الطلبات التي حالتها Pending فقط
                     pending = df[df['Status'] == 'Pending']
                     if not pending.empty:
-                        st.table(pending[['Full_Name', 'Email', 'User_Role']])
-                        st.info("يمكنك تفعيلهم مباشرة من ملف جوجل شيت حالياً لضمان استقرار الكود.")
+                        st.write("الطلبات الجديدة:")
+                        st.dataframe(pending[['Full_Name', 'Email', 'User_Role']])
                     else:
-                        st.write("لا توجد طلبات جديدة.")
+                        st.info("لا توجد طلبات جديدة حالياً.")
 
-            # هنا تضع بقية صفحات البرنامج (المخازن، الطلبات، إلخ)
+            # هنا تضع بقية أجزاء برنامجك (المخازن والطلبات)
             st.write("---")
-            st.info("هنا تظهر بيانات العمل الخاصة بك...")
+            st.info("تم تسجيل الدخول بنجاح. لوحة العمل مفعلة.")
 
         else:
-            st.warning("حسابك قيد المراجعة.. يرجى التواصل مع الإدارة للتفعيل.")
+            st.warning("حسابك مسجل ولكن لم يتم تفعيله بعد من قبل الإدارة.")
     else:
-        st.error("هذا البريد غير مسجل.")
-        if st.button("تقديم طلب انضمام"):
-            st.write("سيتم فتح نموذج التسجيل هنا...")
+        st.error("عذراً، هذا البريد غير مسجل في النظام.")
+        if st.button("تقديم طلب تسجيل جديد"):
+            st.info("يرجى التواصل مع المدير لإضافتك في قاعدة البيانات.")
