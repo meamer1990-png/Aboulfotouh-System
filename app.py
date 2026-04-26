@@ -2,60 +2,53 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# 1. إعداد الاتصال بجوجل شيت
-conn = st.connection("gsheets", type=GSheetsConnection)
+# إعداد واجهة البرنامج
+st.set_page_config(page_title="نظام أبو الفتوح الذكي", layout="wide")
 
-# 2. تعريف إيميل المدير (تأكد من وجود علامات التنصيص في البداية والنهاية)
+# 1. الاتصال بجوجل شيت مع محاولة معالجة الخطأ
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.read(worksheet="Users_Database", ttl=0) # ttl=0 لضمان تحديث البيانات فوراً
+except Exception as e:
+    st.error("خطأ في الاتصال بقاعدة البيانات. تأكد من إعدادات الـ Secrets وصلاحية رابط الشيت.")
+    st.stop()
+
+# 2. تعريف إيميل المدير
 ADMIN_EMAIL = "meamer1990@gmail.com" 
 
-# 3. دالة جلب البيانات من شيت Users_Database
-def get_users():
-    return conn.read(worksheet="Users_Database")
-
-# --- واجهة البرنامج ---
 st.title("نظام مجموعة أبو الفتوح الذكي 🛡️")
 
 # إدخال الإيميل للدخول
 user_email = st.text_input("سجل دخولك بإدخال البريد الإلكتروني:")
 
-# التحقق من أن المستخدم أدخل إيميل بالفعل
 if user_email:
-    # جلب البيانات من الشيت
-    df = get_users()
-    
-    # البحث عن الإيميل المدخل في الشيت
-    user_data = df[df['Email'] == user_email]
+    # التأكد من وجود بيانات في الشيت
+    if not df.empty:
+        # البحث عن الإيميل
+        user_data = df[df['Email'].str.strip() == user_email.strip()]
 
-    if not user_data.empty:
-        status = user_data.iloc[0]['Status']
-        role = user_data.iloc[0]['User_Role']
+        if not user_data.empty:
+            status = user_data.iloc[0]['Status']
+            role = user_data.iloc[0]['User_Role']
 
-        # إذا كان الحساب مفعل
-        if status == "Approved":
-            st.success(f"أهلاً بك.. صفتك في النظام: {role}")
+            if status == "Approved":
+                st.success(f"مرحباً بك.. الصلاحية: {role}")
 
-            # --- ظهور لوحة الإدارة للمدير فقط ---
-            if user_email == ADMIN_EMAIL:
-                st.sidebar.header("⚙️ لوحة الإدارة")
-                menu = st.sidebar.selectbox("القائمة الإدارية", ["الرئيسية", "طلبات الأعضاء"])
+                # ظهور لوحة المدير
+                if user_email == ADMIN_EMAIL:
+                    st.sidebar.header("⚙️ إدارة النظام")
+                    mode = st.sidebar.radio("انتقل إلى:", ["الرئيسية", "طلبات الانضمام"])
+                    
+                    if mode == "طلبات الانضمام":
+                        st.subheader("مراجعة طلبات المستخدمين الجدد")
+                        pending = df[df['Status'] == 'Pending']
+                        st.dataframe(pending)
                 
-                if menu == "طلبات الأعضاء":
-                    st.subheader("إدارة طلبات الانضمام")
-                    # عرض الطلبات التي حالتها Pending فقط
-                    pending = df[df['Status'] == 'Pending']
-                    if not pending.empty:
-                        st.write("الطلبات الجديدة:")
-                        st.dataframe(pending[['Full_Name', 'Email', 'User_Role']])
-                    else:
-                        st.info("لا توجد طلبات جديدة حالياً.")
-
-            # هنا تضع بقية أجزاء برنامجك (المخازن والطلبات)
-            st.write("---")
-            st.info("تم تسجيل الدخول بنجاح. لوحة العمل مفعلة.")
-
+                st.write("---")
+                st.info("لوحة العمل الرئيسية مفعلة الآن.")
+            else:
+                st.warning("عذراً، حسابك قيد المراجعة. يرجى مراجعة المدير.")
         else:
-            st.warning("حسابك مسجل ولكن لم يتم تفعيله بعد من قبل الإدارة.")
-    else:
-        st.error("عذراً، هذا البريد غير مسجل في النظام.")
-        if st.button("تقديم طلب تسجيل جديد"):
-            st.info("يرجى التواصل مع المدير لإضافتك في قاعدة البيانات.")
+            st.error("هذا البريد غير مسجل.")
+            if st.button("إرسال طلب تسجيل"):
+                st.info("تم توجيه طلبك للإدارة.")
