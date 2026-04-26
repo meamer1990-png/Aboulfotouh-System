@@ -1,34 +1,55 @@
-ADMIN_EMAIL = "meamer1990@gmail.com" # ضع هنا إيميلك الذي ستستخدمه للدخول
-# فحص هل المستخدم الحالي هو المدير؟
-if user_email == ADMIN_EMAIL:
-    st.sidebar.markdown("---") # خط فاصل في القائمة الجانبية
-    admin_choice = st.sidebar.selectbox("🛠️ لوحة الإدارة", ["عرض البيانات", "الموافقة على الأعضاء"])
+import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-    if admin_choice == "الموافقة على الأعضاء":
-        st.header("إدارة طلبات الانضمام الجديدة")
-        
-        # قراءة البيانات من الشيت
-        users_df = conn.read(worksheet="Users_Database")
-        
-        # تصفية الأشخاص الذين حالتهم "Pending" (قيد الانتظار)
-        pending_users = users_df[users_df['Status'] == 'Pending']
-        
-        if not pending_users.empty:
-            for index, row in pending_users.iterrows():
-                # عرض بيانات كل شخص في إطار منظم
-                with st.expander(f"طلب من: {row['Full_Name']}"):
-                    st.write(f"**الإيميل:** {row['Email']}")
-                    st.write(f"**التليفون:** {row['Phone']}")
-                    st.write(f"**الصفة المطلوبة:** {row['User_Role']}")
-                    
-                    # أزرار الموافقة أو الرفض
-                    col1, col2 = st.columns(2)
-                    if col1.button("✅ موافقة", key=f"app_{index}"):
-                        # كود لتحديث حالة هذا الشخص في جوجل شيت إلى Approved
-                        st.success(f"تم تفعيل حساب {row['Full_Name']} بنجاح!")
-                        
-                    if col2.button("❌ رفض", key=f"rej_{index}"):
-                        # كود لمسح الطلب أو تحويله لـ Rejected
-                        st.error("تم رفض الطلب.")
+# 1. إعداد الاتصال بجوجل شيت
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# 2. تعريف إيميل المدير (اكتب إيميلك هنا بدقة)
+ADMIN_EMAIL = "meamer1990@gmail.com
+# 3. دالة جلب البيانات من شيت Users_Database
+def get_users():
+    return conn.read(worksheet="Users_Database")
+
+# --- بداية البرنامج ---
+st.title("نظام مجموعة أبو الفتوح الذكي 🛡️")
+
+# محاكاة لعملية الدخول (ستستبدل لاحقاً بزر جوجل لوجن)
+user_email = st.text_input("سجل دخولك بإدخال البريد الإلكتروني:")
+
+if user_email:
+    df = get_users()
+    # البحث عن المستخدم في الشيت
+    user_data = df[df['Email'] == user_email]
+
+    if not user_data.empty:
+        status = user_data.iloc[0]['Status']
+        role = user_data.iloc[0]['User_Role']
+
+        if status == "Approved":
+            st.success(f"أهلاً بك.. صفتك في النظام: {role}")
+
+            # --- لوحة التحكم الخاصة بك (تظهر للمدير فقط) ---
+            if user_email == ADMIN_EMAIL:
+                st.sidebar.header("⚙️ لوحة الإدارة")
+                menu = st.sidebar.selectbox("القائمة الإدارية", ["الرئيسية", "الموافقة على الأعضاء"])
+                
+                if menu == "الموافقة على الأعضاء":
+                    st.subheader("طلبات الانضمام المعلقة")
+                    pending = df[df['Status'] == 'Pending']
+                    if not pending.empty:
+                        st.table(pending[['Full_Name', 'Email', 'User_Role']])
+                        st.info("يمكنك تفعيلهم مباشرة من ملف جوجل شيت حالياً لضمان استقرار الكود.")
+                    else:
+                        st.write("لا توجد طلبات جديدة.")
+
+            # هنا تضع بقية صفحات البرنامج (المخازن، الطلبات، إلخ)
+            st.write("---")
+            st.info("هنا تظهر بيانات العمل الخاصة بك...")
+
         else:
-            st.info("لا توجد طلبات انضمام جديدة حالياً.")
+            st.warning("حسابك قيد المراجعة.. يرجى التواصل مع الإدارة للتفعيل.")
+    else:
+        st.error("هذا البريد غير مسجل.")
+        if st.button("تقديم طلب انضمام"):
+            st.write("سيتم فتح نموذج التسجيل هنا...")
