@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 
-# 1. إعداد الصفحة
 st.set_page_config(page_title="مجموعة أبو الفتوح التجارية", layout="wide")
 
-# 2. الروابط الخاصة بك
-URL = "https://docs.google.com/spreadsheets/d/1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk/gviz/tq?tqx=out:csv&gid=154670233"
-FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform"
+# رابط الشيت الأساسي (بصيغة CSV)
+# تأكد من أن "النشر على الويب" يشمل المستند بأكمله
+sheet_id = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
+# رابط صفحة ردود النموذج (Form Responses) - gid=894869869 كما في صورتك
+URL_RESPONSES = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=894869869"
 
 if 'auth' not in st.session_state:
     st.session_state.auth = False
@@ -18,65 +19,52 @@ if not st.session_state.auth:
     tab1, tab2 = st.tabs(["🔐 تسجيل الدخول", "📝 طلب انضمام جديد"])
     
     with tab1:
-        st.subheader("دخول الأعضاء المعتمدين")
-        email_login = st.text_input("البريد الإلكتروني المعتمد")
+        email_login = st.text_input("البريد الإلكتروني")
         if st.button("دخول"):
+            # دخول استثنائي لك يا دكتور محمد كصاحب عمل
+            if email_login.strip() == "mamer2063@gmail.com":
+                st.session_state.auth = True
+                st.session_state.user_info = {"Name": "Mohamed Essam", "Role": "صاحب العمل"}
+                st.rerun()
+            
             try:
-                df = pd.read_csv(URL)
+                df = pd.read_csv(URL_RESPONSES)
                 df.columns = [str(c).strip() for c in df.columns]
-                user = df[df['Email'].astype(str).str.strip() == email_login.strip()]
+                # البحث في عمود البريد الإلكتروني (العمود C في صورتك)
+                user = df[df.iloc[:, 2].astype(str).str.strip() == email_login.strip()]
                 
                 if not user.empty:
-                    # التحقق من عمود الحالة (العمود رقم 7)
-                    status = str(user.iloc[0].iloc[6]).strip()
-                    if status == "Approved":
-                        st.session_state.auth = True
-                        st.session_state.user_info = user.iloc[0]
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ طلبك قيد المراجعة حالياً.")
+                    # التحقق من عمود الموافقة (سنفترض أنك ستضيف عمود في الشيت للموافقة)
+                    st.warning("⚠️ طلبك وصل للإدارة وهو قيد المراجعة حالياً.")
                 else:
                     st.error("❌ هذا الإيميل غير مسجل.")
-            except Exception as e:
-                st.error("⚠️ فشل الاتصال بقاعدة البيانات.")
+            except:
+                st.error("⚠️ فشل الاتصال.. تأكد من تفعيل 'النشر على الويب' لصفحة الردود.")
 
     with tab2:
-        st.subheader("هل أنت موظف جديد؟")
-        st.write("يرجى الضغط على الزر أدناه لتعبئة بياناتك. بعد الإرسال، سيقوم المدير بمراجعة طلبك.")
-        # زر كبير وواضح للتسجيل
-        st.markdown(f'<a href="{FORM_URL}" target="_blank"><button style="background-color: #4CAF50; color: white; padding: 15px 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 18px;">🚀 اضغط هنا لفتح نموذج التسجيل</button></a>', unsafe_allow_html=True)
+        st.subheader("تقديم طلب جديد")
+        st.write("بياناتك ستظهر فوراً عند الإدارة بعد ملء النموذج.")
+        url_form = "https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform"
+        st.markdown(f'<a href="{url_form}" target="_blank"><button style="background-color: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer;">🚀 افتح نموذج التسجيل</button></a>', unsafe_allow_html=True)
 
-# --- الواجهة الداخلية (بعد الموافقة) ---
+# --- الواجهة الداخلية ---
 else:
     st.balloons()
-    user_data = st.session_state.user_info
-    # جلب الوظيفة من العمود رقم 5 (Index 4)
-    role = str(user_data.iloc[4]).strip()
+    user = st.session_state.user_info
+    st.sidebar.success(f"مرحباً: {user['Name']}")
     
-    st.sidebar.success(f"مرحباً: {user_data.iloc[1]}")
-    st.sidebar.write(f"الوظيفة: {role}")
-    
-    if st.sidebar.button("تسجيل الخروج"):
+    if st.sidebar.button("خروج"):
         st.session_state.auth = False
         st.rerun()
 
-    st.title(f"لوحة تحكم: {role}")
-    st.write("---")
+    st.title(f"لوحة تحكم: {user['Role']}")
     
-    if role == "صاحب العمل":
-        st.subheader("🏦 إدارة المؤسسة")
-        st.info("أهلاً يا دكتور محمد. يمكنك الآن متابعة جميع الحركات.")
-        # عرض البيانات الأساسية
-        col1, col2 = st.columns(2)
-        col1.metric("حالة النظام", "متصل ✅")
-        col2.metric("قاعدة البيانات", "محدثة 📊")
-        
-    elif role == "مندوب":
-        st.subheader("🚚 قسم المندوبين")
-        st.write("مرحباً بك. يمكنك البدء في تسجيل العمليات.")
-        
-    else:
-        st.write("مرحباً بك في النظام. سيتم تخصيص أدواتك قريباً.")
-
-    st.write("---")
-    st.caption("نظام مجموعة أبو الفتوح التجارية - 2026")
+    # ميزة لك يا دكتور محمد: رؤية المتقدمين الجدد من داخل البرنامج
+    if user['Role'] == "صاحب العمل":
+        st.subheader("📋 طلبات الانضمام الجديدة (من الشيت مباشرة)")
+        try:
+            data = pd.read_csv(URL_RESPONSES)
+            st.dataframe(data) # سيعرض لك الجدول الذي في صورتك الأخيرة داخل البرنامج
+            st.info("💡 يمكنك الموافقة عليهم من خلال ملف الإكسيل مباشرة.")
+        except:
+            st.write("لا توجد بيانات حالياً أو تأكد من النشر على الويب.")
