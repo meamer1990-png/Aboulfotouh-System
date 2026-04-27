@@ -1,57 +1,55 @@
 import streamlit as st
 import pandas as pd
 
-# 1. إعداد الصفحة
-st.set_page_config(page_title="مجموعة أبو الفتوح التجارية", layout="wide")
+st.set_page_config(page_title="مجموعة أبو الفتوح", layout="wide")
 
-# 2. الرابط المحدث لجدول Users_Database (gid=154670233)
-sheet_id = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
-URL = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=154670233"
+# الرابط المباشر بعد النشر (بصيغة CSV)
+URL = "https://docs.google.com/spreadsheets/d/1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk/gviz/tq?tqx=out:csv&gid=154670233"
 
 if 'auth' not in st.session_state:
     st.session_state.auth = False
 
-# 3. واجهة تسجيل الدخول
+st.title("🔐 نظام إدارة مؤسسة أبو الفتوح التجاريهpourqoui")
+
 if not st.session_state.auth:
-    st.title("🔐  pourquoi نظام مؤسسه أبو الفتوح التجارية")
-    st.write("يرجى إدخال البريد الإلكتروني للوصول إلى لوحة التحكم")
-    
-    email_input = st.text_input("البريد الإلكتروني")
+    email_input = st.text_input("أدخل البريد الإلكتروني المعتمد:")
     
     if st.button("تسجيل الدخول"):
         try:
-            # سحب البيانات من الشيت
-            df = pd.read_csv(URL)
-            # تنظيف المسافات من أسماء الأعمدة والبيانات
-            df.columns = df.columns.str.strip()
+            # قراءة البيانات وتجاهل الأخطاء البسيطة في التنسيق
+            df = pd.read_csv(URL, on_bad_lines='skip')
             
-            # البحث عن الإيميل
-            user_row = df[df['Email'].astype(str).str.strip() == email_input.strip()]
+            # تنظيف البيانات تماماً من المسافات
+            df.columns = [str(c).strip() for c in df.columns]
+            
+            # البحث عن عمود الإيميل سواء كان بالعربي أو بالإنجليزي
+            email_col = 'Email' if 'Email' in df.columns else df.columns[0]
+            
+            # فلترة الجدول
+            user_row = df[df[email_col].astype(str).str.strip() == email_input.strip()]
             
             if not user_row.empty:
-                status = user_row.iloc[0]['Status']
-                if str(status).strip() == "Approved":
+                # التأكد من حالة الحساب (العمود رقم 6)
+                status = str(user_row.iloc[0].get('Status', user_row.iloc[0][-1])).strip()
+                
+                if status.lower() in ["approved", "مقبول"]:
                     st.session_state.auth = True
                     st.session_state.user_info = user_row.iloc[0]
                     st.rerun()
                 else:
-                    st.warning("⚠️ حسابك قيد المراجعة (Pending).. يرجى التواصل مع الإدارة.")
+                    st.warning(f"⚠️ حسابك موجود ولكن حالته حالياً: {status}")
             else:
-                st.error("❌ هذا البريد الإلكتروني غير مسجل في قاعدة البيانات.")
+                st.error("❌ هذا الإيميل غير موجود في القائمة.")
+                # لإظهار الأعمدة اللي البرنامج شايفها عشان نعرف المشكلة فين
+                st.write("الأعمدة التي قرأها البرنامج:", list(df.columns))
+                
         except Exception as e:
-            st.error("⚠️ عذراً، حدث خطأ في الاتصال بقاعدة البيانات. تأكد من إعدادات المشاركة.")
+            st.error(f"حدث خطأ في قراءة البيانات: {e}")
+            st.info("تأكد أنك اخترت 'قيم مفصولة بفاصلة CSV' عند النشر على الويب.")
 
 else:
-    # 4. لوحة التحكم بعد النجاح
     st.balloons()
-    user = st.session_state.user_info
-    st.success(f"أهلاً بك يا {user['Full_Name']}")
-    st.sidebar.title(f"الوظيفة: {user['User_Role']}")
-    
-    if st.sidebar.button("تسجيل الخروج"):
+    st.success(f"مرحباً بك يا {st.session_state.user_info.iloc[1]}")
+    if st.sidebar.button("خروج"):
         st.session_state.auth = False
         st.rerun()
-
-    st.write("---")
-    st.subheader(f"لوحة تحكم: {user['User_Role']}")
-    st.info("تم تفعيل الربط بنجاح مع Google Sheets ✅")
