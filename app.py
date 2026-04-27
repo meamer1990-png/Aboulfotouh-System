@@ -1,81 +1,89 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
+# إعدادات الصفحة
 st.set_page_config(page_title="مجموعة أبو الفتوح التجارية", layout="wide")
 
-# الرابط المباشر لجلب البيانات
+# روابط قاعدة البيانات (الشيت)
 URL = "https://docs.google.com/spreadsheets/d/1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk/gviz/tq?tqx=out:csv&gid=154670233"
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform"
 
 if 'auth' not in st.session_state:
     st.session_state.auth = False
 
-# --- واجهة تسجيل الدخول أو تقديم طلب جديد ---
+# --- الواجهة الخارجية ---
 if not st.session_state.auth:
-    tab1, tab2 = st.tabs(["🔐 تسجيل الدخول", "📝 تقديم طلب انضمام جديد"])
+    st.title("🛡️ نظام إدارة مجموعة أبو الفتوح")
+    
+    tab1, tab2 = st.tabs(["🔐 تسجيل الدخول", "📝 طلب انضمام جديد"])
     
     with tab1:
         st.subheader("دخول الأعضاء المعتمدين")
-        email_login = st.text_input("البريد الإلكتروني المعتمد")
+        email_login = st.text_input("البريد الإلكتروني المعتمد:")
         if st.button("دخول"):
             try:
+                # قراءة الشيت والتأكد من الحالة
                 df = pd.read_csv(URL)
                 df.columns = [str(c).strip() for c in df.columns]
-                user_row = df[df['Email'].astype(str).str.strip() == email_login.strip()]
+                user = df[df['Email'].astype(str).str.strip() == email_login.strip()]
                 
-                if not user_row.empty:
-                    status = str(user_row.iloc[0].iloc[6]).strip() # عمود G (Status)
+                if not user.empty:
+                    # العمود G (رقم 7) فيه كلمة Approved
+                    status = str(user.iloc[0].iloc[6]).strip()
                     if status == "Approved":
                         st.session_state.auth = True
-                        st.session_state.user_info = user_row.iloc[0]
+                        st.session_state.user_info = user.iloc[0]
                         st.rerun()
                     else:
-                        st.warning("⚠️ حسابك قيد المراجعة من الإدارة.")
+                        st.warning("⚠️ طلبك قيد المراجعة حالياً. سيتم تفعيل حسابك فور موافقة الإدارة.")
                 else:
-                    st.error("❌ هذا البريد غير مسجل، يرجى تقديم طلب انضمام.")
+                    st.error("❌ هذا الإيميل غير مسجل. يرجى تقديم طلب انضمام أولاً.")
             except:
-                st.error("خطأ في الاتصال.")
+                st.error("⚠️ فشل الاتصال بقاعدة البيانات. تأكد من "نشر الشيت على الويب".")
 
     with tab2:
-        st.subheader("نموذج تسجيل مستخدم جديد")
-        new_name = st.text_input("الاسم الثلاثي")
-        new_email = st.text_input("البريد الإلكتروني (سيكون وسيلة دخولك)")
-        new_phone = st.text_input("رقم الهاتف")
-        new_role = st.selectbox("الوظيفة المطلوبة", ["مندوب", "محاسب", "مدير مخزن", "عميل"])
-        
-        if st.button("إرسال الطلب"):
-            # هنا سنعطي المستخدم رابط نموذج جوجل "Forms" مربوط بالشيت لسهولة الإضافة
-            st.success("تم تسجيل بياناتك المبدئية.")
-            st.info("لإتمام الطلب ليصل للإدارة فوراً، يرجى ملء هذا النموذج السريع:")
-            # ملاحظة: يفضل هنا وضع رابط Google Form مربوط بنفس الشيت بتاعك لضمان وصول البيانات فوراً
-            st.markdown(f"[اضغط هنا لإرسال بياناتك للإدارة](https://docs.google.com/forms/d/e/YOUR_FORM_ID/viewform?entry.1={new_name}&entry.2={new_email})")
+        st.subheader("هل أنت موظف جديد؟")
+        st.write("يرجى الضغط على الزر أدناه لتعبئة بياناتك الرسمية. بعد الإرسال، سيقوم المدير بمراجعة طلبك.")
+        st.markdown(f'''
+            <a href="{FORM_URL}" target="_blank" style="text-decoration: none;">
+                <button style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 8px; border: none;">
+                    🚀 اضغط هنا لفتح نموذج التسجيل
+                </button>
+            </a>
+            ''', unsafe_allow_html=True)
 
-# --- واجهة البرنامج من الداخل بعد الموافقة ---
+# --- الواجهة الداخلية (بعد الموافقة) ---
 else:
     st.balloons()
-    user = st.session_state.user_info
-    st.sidebar.success(f"مرحباً: {user.iloc[1]}")
-    st.sidebar.write(f"الدور: {user.iloc[4]}")
+    user_data = st.session_state.user_info
+    role = user_data.iloc[4] # العمود E فيه الوظيفة
+    
+    st.sidebar.success(f"مرحباً بك يا {user_data.iloc[1]}")
+    st.sidebar.write(f"الصلاحية: {role}")
     
     if st.sidebar.button("تسجيل الخروج"):
         st.session_state.auth = False
         st.rerun()
 
-    # --- تقسيم الصلاحيات (ماذا يرى كل مستخدم) ---
-    st.title(f"لوحة تحكم {user.iloc[4]}")
+    # محتوى لوحة التحكم حسب الوظيفة
+    st.title(f"لوحة تحكم: {role}")
+    st.write("---")
     
-    if user.iloc[4] == "صاحب العمل":
-        st.write("### 🏦 نظرة عامة على المؤسسة")
-        # هنا تضع روابط أو جداول الأرباح والطلبات الكلية
-        st.metric("إجمالي المبيعات اليوم", "50,000 ج.م")
+    if role == "صاحب العمل":
+        st.subheader("🏦 إدارة المؤسسة")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("إجمالي المندوبين", "5")
+        col2.metric("الطلبات النشطة", "12")
+        col3.metric("ميزانية اليوم", "25,000 ج.م")
+        st.info("إشعار: يمكنك الآن متابعة جميع حركات المندوبين من هنا.")
         
-    elif user.iloc[4] == "محاسب":
-        st.write("### 📊 الحسابات والميزانية")
-        # عرض شيت الحسابات فقط
+    elif role == "مندوب":
+        st.subheader("🚚 قسم المندوبين")
+        st.button("➕ تسجيل طلبية جديدة")
+        st.button("📦 عرض المخزون المتاح")
         
-    elif user.iloc[4] == "مندوب":
-        st.write("### 🚚 تسجيل طلبات العملاء")
-        # هنا تضع فورم لتسجيل الأوردرات الجديدة
+    else:
+        st.write("مرحباً بك في النظام. سيتم إضافة أدواتك الخاصة قريباً.")
 
     st.write("---")
-    st.write("📦 النظام الآن جاهز لاستقبال بيانات المنتجات والمخازن.")
+    st.caption("نظام مجموعة أبو الفتوح التجارية - 2026")
