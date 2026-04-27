@@ -1,70 +1,69 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="مجموعة أبو الفتوح التجارية", layout="wide")
+# 1. إعدادات الصفحة الأساسية
+st.set_page_config(page_title="منظومة أبو الفتوح التجارية", layout="wide")
 
-# رابط الشيت الأساسي (بصيغة CSV)
-# تأكد من أن "النشر على الويب" يشمل المستند بأكمله
-sheet_id = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
-# رابط صفحة ردود النموذج (Form Responses) - gid=894869869 كما في صورتك
-URL_RESPONSES = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=894869869"
+# 2. تعريف روابط الصفحات (استناداً لصورك)
+SHEET_ID = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
+# رابط الردود (gid=894869869)
+URL_MAIN = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=894869869"
+# رابط المخازن (Inventory) - سنفترض الترتيب التلقائي
+URL_INV = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0" 
 
 if 'auth' not in st.session_state:
     st.session_state.auth = False
 
-# --- الواجهة الخارجية ---
+# --- واجهة الدخول ---
 if not st.session_state.auth:
-    st.title("🛡️ نظام إدارة مجموعة أبو الفتوح")
+    st.title("🛡️ نظام إدارة مؤسسة أبو الفتوح")
+    email_login = st.text_input("أدخل البريد الإلكتروني المسجل:")
     
-    tab1, tab2 = st.tabs(["🔐 تسجيل الدخول", "📝 طلب انضمام جديد"])
-    
-    with tab1:
-        email_login = st.text_input("البريد الإلكتروني")
-        if st.button("دخول"):
-            # دخول استثنائي لك يا دكتور محمد كصاحب عمل
-            if email_login.strip() == "mamer2063@gmail.com":
-                st.session_state.auth = True
-                st.session_state.user_info = {"Name": "Mohamed Essam", "Role": "صاحب العمل"}
-                st.rerun()
-            
+    if st.button("تسجيل الدخول"):
+        # دخول مباشر لك يا دكتور محمد
+        if email_login.strip() == "mamer2063@gmail.com":
+            st.session_state.auth = True
+            st.session_state.user_info = {"Name": "محمد عصام", "Role": "صاحب العمل"}
+            st.rerun()
+        else:
             try:
-                df = pd.read_csv(URL_RESPONSES)
-                df.columns = [str(c).strip() for c in df.columns]
-                # البحث في عمود البريد الإلكتروني (العمود C في صورتك)
+                df = pd.read_csv(URL_MAIN)
+                # البحث عن الإيميل والتأكد من كلمة approved في عمود Status (صورة fda28b3f)
                 user = df[df.iloc[:, 2].astype(str).str.strip() == email_login.strip()]
-                
-                if not user.empty:
-                    # التحقق من عمود الموافقة (سنفترض أنك ستضيف عمود في الشيت للموافقة)
-                    st.warning("⚠️ طلبك وصل للإدارة وهو قيد المراجعة حالياً.")
+                if not user.empty and str(user.iloc[0]['Status']).lower() == "approved":
+                    st.session_state.auth = True
+                    st.session_state.user_info = {"Name": user.iloc[0].iloc[1], "Role": user.iloc[0].iloc[4]}
+                    st.rerun()
                 else:
-                    st.error("❌ هذا الإيميل غير مسجل.")
+                    st.error("❌ الحساب غير مفعل أو غير مسجل.")
             except:
-                st.error("⚠️ فشل الاتصال.. تأكد من تفعيل 'النشر على الويب' لصفحة الردود.")
+                st.error("⚠️ خطأ في قراءة البيانات. تأكد من 'النشر على الويب'.")
 
-    with tab2:
-        st.subheader("تقديم طلب جديد")
-        st.write("بياناتك ستظهر فوراً عند الإدارة بعد ملء النموذج.")
-        url_form = "https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform"
-        st.markdown(f'<a href="{url_form}" target="_blank"><button style="background-color: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer;">🚀 افتح نموذج التسجيل</button></a>', unsafe_allow_html=True)
-
-# --- الواجهة الداخلية ---
+# --- داخل السيستم (بعد الدخول) ---
 else:
-    st.balloons()
     user = st.session_state.user_info
     st.sidebar.success(f"مرحباً: {user['Name']}")
-    
-    if st.sidebar.button("خروج"):
+    menu = st.sidebar.selectbox("القائمة الرئيسية", ["لوحة التحكم", "📦 المخازن (Inventory)", "🤝 التجار (Merchants)", "📝 الطلبات (Orders)"])
+
+    if menu == "لوحة التحكم":
+        st.title(f"أهلاً بك في نظام أبو الفتوح - قطاع {user['Role']}")
+        st.info("النظام مرتبط الآن بجداول البيانات التي قمت بتحديثها.")
+        
+    elif menu == "📦 المخازن (Inventory)":
+        st.subheader("قائمة الأصناف المتوفرة")
+        # هنا يقرأ من صفحة Inventory اللي في صورتك (b8590080)
+        st.write("بيانات الأصناف والكميات المتاحة:")
+        # ملاحظة: سنحتاج لضبط الـ gid الخاص بكل صفحة لاحقاً
+        st.warning("سيتم عرض جدول الأصناف هنا فور ربط الـ gid الخاص بكل صفحة.")
+
+    elif menu == "🤝 التجار (Merchants)":
+        st.subheader("دليل التجار والعملاء")
+        # يقرأ من صفحة Merchants (0fb35e18)
+
+    elif menu == "📝 الطلبات (Orders)":
+        st.subheader("سجل الطلبيات")
+        # يقرأ من صفحة Orders (57cf132d)
+
+    if st.sidebar.button("تسجيل خروج"):
         st.session_state.auth = False
         st.rerun()
-
-    st.title(f"لوحة تحكم: {user['Role']}")
-    
-    # ميزة لك يا دكتور محمد: رؤية المتقدمين الجدد من داخل البرنامج
-    if user['Role'] == "صاحب العمل":
-        st.subheader("📋 طلبات الانضمام الجديدة (من الشيت مباشرة)")
-        try:
-            data = pd.read_csv(URL_RESPONSES)
-            st.dataframe(data) # سيعرض لك الجدول الذي في صورتك الأخيرة داخل البرنامج
-            st.info("💡 يمكنك الموافقة عليهم من خلال ملف الإكسيل مباشرة.")
-        except:
-            st.write("لا توجد بيانات حالياً أو تأكد من النشر على الويب.")
