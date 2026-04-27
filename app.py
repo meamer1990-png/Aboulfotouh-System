@@ -9,7 +9,7 @@ URL = "https://docs.google.com/spreadsheets/d/1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmM
 if 'auth' not in st.session_state:
     st.session_state.auth = False
 
-st.title("🔐 نظام إدارة مؤسسة أبو الفتوح التجاريهpourqoui")
+st.title("🔐 نظام إدارة مؤسسة أبو الفتوح")
 
 if not st.session_state.auth:
     email_input = st.text_input("أدخل البريد الإلكتروني المعتمد:")
@@ -29,7 +29,7 @@ if not st.session_state.auth:
             user_row = df[df[email_col].astype(str).str.strip() == email_input.strip()]
             
             if not user_row.empty:
-                # التأكد من حالة الحساب ( G العمود رقم)
+                # التأكد من حالة الحساب (العمود رقم 5 أو 6)
                 status = str(user_row.iloc[0].get('Status', user_row.iloc[0][-1])).strip()
                 
                 if status.lower() in ["approved", "مقبول"]:
