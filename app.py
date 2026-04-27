@@ -1,54 +1,57 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# إعداد واجهة البرنامج
-st.set_page_config(page_title="نظام أبو الفتوح الذكي", layout="wide")
+# إعداد الصفحة
+st.set_page_config(page_title="مجموعة أبو الفتوح التجارية", layout="wide")
 
-# 1. الاتصال بجوجل شيت مع محاولة معالجة الخطأ
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df = conn.read(worksheet="Users_Database", ttl=0) # ttl=0 لضمان تحديث البيانات فوراً
-except Exception as e:
-    st.error("خطأ في الاتصال بقاعدة البيانات. تأكد من إعدادات الـ Secrets وصلاحية رابط الشيت.")
-    st.stop()
+# الرابط السحري لسحب البيانات من الشيت بتاعك مباشرة
+# استبدلنا الرابط العادي برابط تصدير CSV
+sheet_id = "1Ey5M-J_O50wvYty00cgZvsyKq_LLcQBmMwKWf_Nl_rk"
+URL = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=1114501625"
 
-# 2. تعريف إيميل المدير
-ADMIN_EMAIL = "meamer1990@gmail.com" 
+if 'auth' not in st.session_state:
+    st.session_state.auth = False
 
-st.title("نظام مجموعة أبو الفتوح الذكي 🛡️")
-
-# إدخال الإيميل للدخول
-user_email = st.text_input("سجل دخولك بإدخال البريد الإلكتروني:")
-
-if user_email:
-    # التأكد من وجود بيانات في الشيت
-    if not df.empty:
-        # البحث عن الإيميل
-        user_data = df[df['Email'].str.strip() == user_email.strip()]
-
-        if not user_data.empty:
-            status = user_data.iloc[0]['Status']
-            role = user_data.iloc[0]['User_Role']
-
-            if status == "Approved":
-                st.success(f"مرحباً بك.. الصلاحية: {role}")
-
-                # ظهور لوحة المدير
-                if user_email == ADMIN_EMAIL:
-                    st.sidebar.header("⚙️ إدارة النظام")
-                    mode = st.sidebar.radio("انتقل إلى:", ["الرئيسية", "طلبات الانضمام"])
-                    
-                    if mode == "طلبات الانضمام":
-                        st.subheader("مراجعة طلبات المستخدمين الجدد")
-                        pending = df[df['Status'] == 'Pending']
-                        st.dataframe(pending)
-                
-                st.write("---")
-                st.info("لوحة العمل الرئيسية مفعلة الآن.")
+# واجهة الدخول
+if not st.session_state.auth:
+    st.title("🔐 نظام مجموعة أبو الفتوح")
+    email_input = st.text_input("أدخل البريد الإلكتروني المسجل:")
+    
+    if st.button("تسجيل الدخول"):
+        try:
+            # قراءة البيانات
+            df = pd.read_csv(URL)
+            df.columns = df.columns.str.strip() # تنظيف أسماء الأعمدة
+            
+            # التأكد من وجود الإيميل في الشيت
+            user_row = df[df['Email'].astype(str).str.strip() == email_input.strip()]
+            
+            if not user_row.empty:
+                status = user_row.iloc[0]['Status']
+                if status == "Approved":
+                    st.session_state.auth = True
+                    st.session_state.user_info = user_row.iloc[0]
+                    st.rerun()
+                else:
+                    st.warning("⚠️ حسابك موجود ولكنه قيد الانتظار (Pending).")
             else:
-                st.warning("عذراً، حسابك قيد المراجعة. يرجى مراجعة المدير.")
-        else:
-            st.error("هذا البريد غير مسجل.")
-            if st.button("إرسال طلب تسجيل"):
-                st.info("تم توجيه طلبك للإدارة.")
+                st.error("❌ هذا الإيميل غير مسجل في النظام.")
+                if st.button("تقديم طلب انضمام"):
+                    st.info("سيتم تحويلك لنموذج التسجيل قريباً")
+        except Exception as e:
+            st.error("تأكد من كتابة الإيميل بشكل صحيح")
+
+else:
+    # لوحة التحكم بعد الدخول
+    st.balloons()
+    user = st.session_state.user_info
+    st.success(f"مرحباً بك: {user['Full_Name']}")
+    st.sidebar.title(f"الصلاحية: {user['User_Role']}")
+    
+    if st.sidebar.button("تسجيل الخروج"):
+        st.session_state.auth = False
+        st.rerun()
+
+    # هنا نعرض محتوى مختلف حسب الوظيفة
+    st.write(f"### لوحة تحكم {user['User_Role']}")
+    st.info("تم الاتصال بقاعدة البيانات بنجاح ✅")
