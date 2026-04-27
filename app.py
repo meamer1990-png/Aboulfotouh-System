@@ -14,7 +14,7 @@ if 'auth' not in st.session_state:
 
 # واجهة الدخول
 if not st.session_state.auth:
-    st.title("🔐 نظام مجموعة أبو الفتوح")
+    st.title("🔐 نظام مجموعة أبو الفتوh")
     email_input = st.text_input("أدخل البريد الإلكتروني المسجل:")
     
     if st.button("تسجيل الدخول"):
