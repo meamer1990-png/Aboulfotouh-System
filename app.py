@@ -29,7 +29,7 @@ if not st.session_state.auth:
             user_row = df[df[email_col].astype(str).str.strip() == email_input.strip()]
             
             if not user_row.empty:
-                # التأكد من حالة الحساب (العمود رقم 6)
+                # التأكد من حالة الحساب (العمود رقم 5 او 6)
                 status = str(user_row.iloc[0].get('Status', user_row.iloc[0][-1])).strip()
                 
                 if status.lower() in ["approved", "مقبول"]:
