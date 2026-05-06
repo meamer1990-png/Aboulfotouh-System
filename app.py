@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
 
-# الرابط الأساسي لجداول البيانات
+# الرابط الأساسي
 BASE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4tUjdMv4rY_meyVWCwB7MYbSGMqBeMzQzXWvI1jNhna34oxOmpMwFPg-HGCmVO7gfLVbDQjCBCbEX/pub?output=csv"
 
 st.set_page_config(page_title="Pourquoi System", layout="wide")
 
-# دالة جلب البيانات
 def fetch_data(gid):
     try:
         url = f"{BASE_URL}&gid={gid}"
@@ -21,73 +20,73 @@ if 'auth' not in st.session_state:
     st.session_state.role = None
     st.session_state.user_details = None
 
-# --- [1] واجهة تسجيل الدخول ---
+# --- الواجهة الرئيسية (دخول / تسجيل) ---
 if not st.session_state.auth:
     st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>Pourquoi المؤسسة التجارية</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center;'>نظام إدارة أبوالفتوح</h3>", unsafe_allow_html=True)
     
-    login_id = st.text_input("البريد الإلكتروني المعتمد:").strip().lower()
-    
-    if st.button("دخول النظام", use_container_width=True):
-        # تفعيل إيميلاتك ككنترول (الإيميلين لضمان الدخول)
-        if login_id in ["mamer2063@gmail.com", "meamer1990@gmail.com", "admin"]:
-            st.session_state.auth = True
-            st.session_state.role = "الكنترول"
-            st.session_state.user_details = {"الاسم": "د. محمد عصام"}
-            st.rerun()
-        
-        # التحقق من بقية المستخدمين من شيت Users (gid=0)
-        df_users = fetch_data("0")
-        if df_users is not None:
-            # البحث عن الإيميل في العمود المخصص (تأكد من اسم العمود في الشيت)
-            user_row = df_users[df_users.iloc[:, 2].astype(str).str.strip().str.lower() == login_id]
-            if not user_row.empty:
-                status = str(user_row.iloc[0].get('Status', '')).strip().lower()
-                if status == "approved":
-                    st.session_state.auth = True
-                    st.session_state.role = user_row.iloc[0].get('الغرض من الدخول', 'عميل')
-                    st.session_state.user_details = {"الاسم": user_row.iloc[0].iloc[1]}
-                    st.rerun()
-                else:
-                    st.warning("⚠️ بانتظار تفعيل الحساب من الإدارة.")
-            else:
-                st.error("❌ البريد غير مسجل.")
+    # اختيار العملية: دخول أو تسجيل جديد
+    choice = st.radio("اختر الإجراء:", ["🔑 تسجيل الدخول", "📝 طلب حساب جديد (لأول مرة)"], horizontal=True)
 
-# --- [2] واجهات النظام بعد الدخول ---
+    if choice == "🔑 تسجيل الدخول":
+        login_id = st.text_input("البريد الإلكتروني المعتمد:").strip().lower()
+        if st.button("دخول النظام", use_container_width=True):
+            if login_id in ["mamer2063@gmail.com", "meamer1990@gmail.com"]:
+                st.session_state.auth = True
+                st.session_state.role = "الكنترول"
+                st.session_state.user_details = {"الاسم": "د. محمد عصام"}
+                st.rerun()
+            
+            df_users = fetch_data("0")
+            if df_users is not None:
+                user_row = df_users[df_users.iloc[:, 2].astype(str).str.strip().str.lower() == login_id]
+                if not user_row.empty:
+                    status = str(user_row.iloc[0].get('Status', '')).strip().lower()
+                    if status == "approved":
+                        st.session_state.auth = True
+                        st.session_state.role = user_row.iloc[0].get('الغرض من الدخول', 'عميل')
+                        st.session_state.user_details = {"الاسم": user_row.iloc[0].iloc[1]}
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ حسابك بانتظار موافقة الكنترول.")
+                else:
+                    st.error("❌ هذا البريد غير مسجل.")
+
+    elif choice == "📝 طلب حساب جديد (لأول مرة)":
+        st.subheader("تعبئة بيانات طلب الانضمام")
+        with st.form("registration_form"):
+            reg_name = st.text_input("الاسم الكامل")
+            reg_phone = st.text_input("رقم التليفون")
+            reg_email = st.text_input("البريد الإلكتروني (المستخدم للدخول لاحقاً)")
+            reg_address = st.text_input("العنوان")
+            reg_role = st.selectbox("نوع الحساب المطلوب", ["عميل", "مندوب", "محاسب"])
+            
+            submit_btn = st.form_submit_button("إرسال طلب الانضمام")
+            if submit_btn:
+                if reg_name and reg_email:
+                    # توجيه المستخدم لنموذج جوجل لضمان وصول البيانات للشيت
+                    st.success("تم تجهيز طلبك! فضلاً اضغط على الرابط التالي لإتمام الإرسال:")
+                    st.markdown(f"[اضغط هنا لإتمام إرسال بياناتك للكنترول](https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform)")
+                else:
+                    st.error("يرجى ملء البيانات الأساسية.")
+
+# --- الواجهات الداخلية بعد الدخول ---
 else:
     role = st.session_state.role
     st.sidebar.markdown(f"### 👤 {st.session_state.user_details['الاسم']}")
-    st.sidebar.markdown(f"**الرتبة: {role}**")
-    st.sidebar.divider()
-
-    # --- واجهة الكنترول ---
+    st.sidebar.info(f"الرتبة: {role}")
+    
     if role == "الكنترول":
-        menu = st.sidebar.radio("لوحة التحكم", ["👥 إدارة الحسابات", "📦 جرد المخزن", "📊 تقارير الأداء", "📩 الشكاوى"])
-        
-        if menu == "👥 إدارة الحسابات":
-            st.header("👥 تفعيل وتعليق الحسابات")
+        st.header("🎛️ لوحة تحكم الإدارة")
+        # الأقسام كما في صورتك 1000405775
+        menu = st.sidebar.selectbox("القائمة الإدارية", ["المستخدمين", "المخزن", "الطلبات"])
+        if menu == "المستخدمين":
             df_u = fetch_data("0")
-            if df_u is not None:
-                st.dataframe(df_u[['الاسم الكامل', 'الغرض من الدخول', 'رقم التليفون', 'Status']])
-                st.info("💡 للتفعيل: اذهب للشيت واكتب 'approved' في عمود Status.")
-        
-        elif menu == "📦 جرد المخزن":
-            st.header("📦 حالة الأصناف")
-            df_inv = fetch_data("1608796075")
-            st.dataframe(df_inv)
-
-    # --- واجهة المندوب ---
+            st.dataframe(df_u)
+            
     elif role == "مندوب":
-        menu = st.sidebar.radio("قائمة المندوب", ["🚗 خط السير", "📝 تسجيل عميل جديد", "🧾 إصدار فاتورة"])
-        if menu == "🚗 خط السير":
-            st.title("🚗 مهامي اليومية")
-            st.info("سيتم عرض المدن المحددة لك من قبل المحاسب.")
+        st.title("🚗 واجهة المندوب")
+        # سنضيف هنا زر الـ GPS والفواتير في الخطوة التالية
 
-    # --- واجهة العميل ---
-    elif role == "عميل":
-        st.title("🛍️ طلب أوردر جديد")
-        st.write("بيانات المندوب الخاص بك ومواعيد الزيارة.")
-
-    if st.sidebar.button("تسجيل الخروج"):
+    if st.sidebar.button("خروج"):
         st.session_state.auth = False
         st.rerun()
