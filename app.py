@@ -1,82 +1,101 @@
 import streamlit as st
 import pandas as pd
 
-# الرابط الخاص بك (تم التأكد من صحته)
+# الرابط الأساسي للشيت الخاص بك
 BASE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4tUjdMv4rY_meyVWCwB7MYbSGMqBeMzQzXWvI1jNhna34oxOmpMwFPg-HGCmVO7gfLVbDQjCBCbEX/pub?output=csv"
 
-st.set_page_config(page_title="مجموعة أبو الفتوح - النظام المتكامل", layout="wide")
+st.set_page_config(page_title="Pourquoi - إدارة مؤسسة أبوالفتوح", layout="wide")
 
-# دالة جلب البيانات مع تنظيف كامل للأخطاء البشرية
+# دالة جلب البيانات مع التنظيف
 def fetch_data(gid):
     try:
         url = f"{BASE_URL}&gid={gid}"
         df = pd.read_csv(url)
-        df.columns = df.columns.str.strip() # حذف المسافات من أسماء الأعمدة
+        df.columns = df.columns.str.strip()
         return df
     except:
         return None
 
+# إعداد حالة الجلسة (Session State)
 if 'auth' not in st.session_state:
     st.session_state.auth = False
+    st.session_state.role = None
+    st.session_state.user_details = None
 
-# --- واجهة تسجيل الدخول ---
+# --- [1] واجهة الدخول والتسجيل ---
 if not st.session_state.auth:
-    st.title("🛡️ بوابة الدخول الموحدة")
-    email_in = st.text_input("البريد الإلكتروني المعتمد:").strip().lower()
+    st.image("https://via.placeholder.com/150?text=Pourquoi", width=100) # ضع هنا لوجو Pourquoi لاحقاً
+    st.title("🛡️ بوابة نظام Pourquoi التجارية")
     
-    if st.button("تسجيل الدخول"):
-        # 1. الدخول المباشر لك يا دكتور (صمام أمان)
-        if email_in == "mamer2063@gmail.com":
-            st.session_state.auth = True
-            st.session_state.user_info = {"Name": "د. محمد عصام", "Role": "صاحب العمل"}
-            st.rerun()
-        
-        # 2. فحص المناديب بدقة (صفحة الردود 894869869)
-        df_users = fetch_data("894869869")
-        if df_users is not None:
-            # البحث عن الإيميل في العمود الثالث (Timestamp, Name, Email...)
-            # وتأكد أن الحالة في عمود Status هي approved حصراً
-            user_row = df_users[(df_users.iloc[:, 2].astype(str).str.strip().str.lower() == email_in) & 
-                                (df_users['Status'].astype(str).str.strip().str.lower() == 'approved')]
-            
-            if not user_row.empty:
+    tab_login, tab_register = st.tabs(["🔐 تسجيل الدخول", "📝 طلب حساب جديد"])
+    
+    with tab_login:
+        login_id = st.text_input("أدخل البريد الإلكتروني المعتمد:").strip().lower()
+        if st.button("دخول النظام"):
+            # 1. الدخول المباشر للكنترول (د. محمد)
+            if login_id == "mamer2063@gmail.com":
                 st.session_state.auth = True
-                st.session_state.user_info = {"Name": user_row.iloc[0].iloc[1], "Role": "مندوب مبيعات"}
+                st.session_state.role = "الكنترول"
+                st.session_state.user_details = {"الاسم": "د. محمد عصام"}
                 st.rerun()
-            else:
-                st.error("❌ الحساب غير مفعل أو الإيميل خطأ. (يجب أن تكون الحالة approved في الشيت)")
-        else:
-            st.error("⚠️ فشل الاتصال بقاعدة البيانات. تأكد من نشر الشيت للويب.")
+            
+            # 2. التحقق من قاعدة بيانات المستخدمين (gid=894869869)
+            df_users = fetch_data("894869869")
+            if df_users is not None:
+                # البحث عن المستخدم والتأكد من الموافقة
+                user_row = df_users[(df_users.iloc[:, 2].astype(str).str.strip().str.lower() == login_id)]
+                
+                if not user_row.empty:
+                    status = str(user_row.iloc[0]['Status']).strip().lower()
+                    if status == "approved":
+                        st.session_state.auth = True
+                        st.session_state.role = user_row.iloc[0]['الغرض من الدخول'] # (عميل/مندوب/محاسب)
+                        st.session_state.user_details = user_row.iloc[0].to_dict()
+                        st.rerun()
+                    else:
+                        st.warning(f"⚠️ الحساب مسجل ولكن لم يتم تفعيله بعد. الحالة: {status}")
+                else:
+                    st.error("❌ هذا الإيميل غير مسجل. يرجى تقديم طلب حساب جديد.")
 
-# --- واجهة البرنامج بعد الدخول (التقسيم الداخلي) ---
+    with tab_register:
+        st.subheader("📝 نموذج طلب انضمام للمؤسسة")
+        with st.form("reg_form"):
+            new_name = st.text_input("الاسم الكامل")
+            new_address = st.text_input("العنوان بالتفصيل")
+            new_role = st.selectbox("الغرض من الدخول", ["عميل", "مندوب", "محاسب"])
+            new_phone = st.text_input("رقم التليفون")
+            new_email = st.text_input("الإيميل (سيكون هو مفتاح دخولك)")
+            submit = st.form_submit_button("إرسال طلب للكنترول")
+            if submit:
+                # هنا نوجه المستخدم لنموذج Google Form لضمان وصول البيانات للشيت
+                st.success("يرجى إتمام التسجيل عبر نموذج جوجل الرسمي ليظهر لدى الكنترول.")
+                st.markdown(f"[اضغط هنا لفتح نموذج التسجيل](https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform)")
+
+# --- [2] واجهة البرنامج المخصصة حسب الرتبة ---
 else:
-    st.sidebar.header(f"👤 {st.session_state.user_info['Name']}")
-    # التقسيم الواضح الذي طلبته
-    tab_menu = st.sidebar.radio("المنظومة الإدارية:", 
-        ["📦 المخازن والجرد", "👥 دليل العملاء", "📍 جدول الزيارات", "📊 التقارير والفواتير"])
+    role = st.session_state.role
+    user_name = st.session_state.user_details['الاسم']
+    
+    st.sidebar.title(f"مرحباً بك: {user_name}")
+    st.sidebar.info(f"رتبتك: {role}")
 
-    if tab_menu == "📦 المخازن والجرد":
-        st.header("📦 جرد الأصناف والتقييمات")
-        df_inv = fetch_data("0") # صفحة Inventory
-        if df_inv is not None:
-            st.dataframe(df_inv, use_container_width=True)
-        else: st.warning("لا توجد بيانات حالياً")
+    # تفريع الواجهات بناءً على طلبك
+    if role == "الكنترول":
+        import control_module # سنقوم ببنائه
+        st.title("🎛️ لوحة تحكم الإدارة العليا")
+        st.write("مرحباً دكتور محمد، لديك السيطرة الكاملة على النظام.")
 
-    elif tab_menu == "👥 دليل العملاء":
-        st.header("👥 بيانات التجار والعملاء")
-        df_merch = fetch_data("162635924") # صفحة Merchants (تأكد من الـ gid)
-        if df_merch is not None:
-            st.dataframe(df_merch)
+    elif role == "محاسب":
+        st.title("🧾 واجهة الإدارة المالية والمحاسبية")
+        st.write("إدارة المناديب، خطوط السير، والتقارير.")
 
-    elif tab_menu == "📍 جدول الزيارات":
-        st.header("📍 مواعيد زيارات المناديب")
-        st.info("هذا القسم مربوط بصفحة Visits لتنظيم الميدان.")
-        # هنا سنضع كود الـ GPS لاحقاً
+    elif role == "مندوب":
+        st.title("🚗 بوابة المندوب الميدانية")
+        st.write("خطوط السير، تسجيل الزيارات، وإصدار الفواتير.")
 
-    elif tab_menu == "📊 التقارير والفواتير":
-        st.header("📋 استخراج التقارير")
-        st.date_input("حدد الفترة")
-        st.button("تحميل تقرير PDF")
+    elif role == "عميل":
+        st.title("🤝 بوابة عملاء Pourquoi")
+        st.write("مواعيد الزيارة، طلب أوردر، والشكاوى.")
 
     if st.sidebar.button("تسجيل الخروج"):
         st.session_state.auth = False
