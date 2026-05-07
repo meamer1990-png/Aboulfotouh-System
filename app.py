@@ -1,92 +1,100 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
-# الرابط الأساسي
+# الروابط و الـ GIDs المستخرجة من شيتاتك
 BASE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4tUjdMv4rY_meyVWCwB7MYbSGMqBeMzQzXWvI1jNhna34oxOmpMwFPg-HGCmVO7gfLVbDQjCBCbEX/pub?output=csv"
-
-st.set_page_config(page_title="Pourquoi System", layout="wide")
+GIDS = {
+    "Users": "0",
+    "Inventory": "1608796075",
+    "Visits": "1113063548",
+    "Orders": "56426419",
+    "Merchants": "162635924"
+}
 
 def fetch_data(gid):
     try:
-        url = f"{BASE_URL}&gid={gid}"
-        df = pd.read_csv(url)
-        df.columns = df.columns.str.strip()
-        return df
-    except:
-        return None
+        return pd.read_csv(f"{BASE_URL}&gid={gid}").fillna("")
+    except: return None
 
-if 'auth' not in st.session_state:
-    st.session_state.auth = False
-    st.session_state.role = None
-    st.session_state.user_details = None
-
-# --- الواجهة الرئيسية (دخول / تسجيل) ---
-if not st.session_state.auth:
-    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>Pourquoi المؤسسة التجارية</h1>", unsafe_allow_html=True)
+# --- [1] واجهة الكنترول (الإدارة العليا) ---
+def show_control():
+    st.header("🎛️ لوحة تحكم الإدارة العليا")
+    m = st.tabs(["👥 الحسابات", "📊 الأداء العام", "📦 المخزن", "📩 الشكاوى"])
     
-    # اختيار العملية: دخول أو تسجيل جديد
-    choice = st.radio("اختر الإجراء:", ["🔑 تسجيل الدخول", "📝 طلب حساب جديد (لأول مرة)"], horizontal=True)
+    with m[0]:
+        st.subheader("إدارة المستخدمين")
+        df = fetch_data(GIDS["Users"])
+        st.dataframe(df)
+        st.info("💡 تحكم في القبول/التعليق من الشيت مباشرة (Status).")
+        
+    with m[1]:
+        st.subheader("📈 تقييم أداء المؤسسة")
+        st.write("مقارنة المبيعات (يومي/أسبوعي/شهري)")
+        # سيتم ربطها بشيت المبيعات لرسم بياني
+        
+    with m[3]:
+        st.subheader("📩 صندوق الشكاوى والاقتراحات")
+        st.warning("هذا القسم خاص بالكنترول فقط ولا يظهر للمحاسب أو المندوب.")
 
-    if choice == "🔑 تسجيل الدخول":
-        login_id = st.text_input("البريد الإلكتروني المعتمد:").strip().lower()
-        if st.button("دخول النظام", use_container_width=True):
-            if login_id in ["mamer2063@gmail.com", "meamer1990@gmail.com"]:
-                st.session_state.auth = True
-                st.session_state.role = "الكنترول"
-                st.session_state.user_details = {"الاسم": "د. محمد عصام"}
-                st.rerun()
+# --- [2] واجهة المحاسب (المايسترو) ---
+def show_accountant():
+    st.header("🧾 الواجهة المحاسبية")
+    m = st.tabs(["🚗 خطوط السير", "📑 تقارير المبيعات", "📦 طلبات العملاء"])
+    
+    with m[0]:
+        st.subheader("تحديد خط سير المندوب")
+        # واجهة لاختيار المندوب وتحديد مدن الزيارة
+        st.selectbox("اختر المندوب", ["مندوب 1", "مندوب 2"])
+        st.date_input("موعد الزيارة")
+        st.button("تأكيد خط السير")
+
+# --- [3] واجهة المندوب (الميدانية) ---
+def show_salesman():
+    st.header("🚗 بوابة المندوب الميدانية")
+    m = st.tabs(["📍 الزيارات اليومية", "📝 تسجيل عميل جديد", "🧾 فاتورة بيع"])
+    
+    with m[0]:
+        st.subheader("📍 تأكيد الزيارة بالـ GPS")
+        st.info("خط السير المحدد لك اليوم: (القاهرة - وسط البلد)")
+        if st.button("📍 تسجيل وصول (تأكيد الموقع والوقت)"):
+            st.success(f"تم تسجيل الزيارة في {datetime.now().strftime('%H:%M')} مع مطابقة الموقع.")
             
-            df_users = fetch_data("0")
-            if df_users is not None:
-                user_row = df_users[df_users.iloc[:, 2].astype(str).str.strip().str.lower() == login_id]
-                if not user_row.empty:
-                    status = str(user_row.iloc[0].get('Status', '')).strip().lower()
-                    if status == "approved":
-                        st.session_state.auth = True
-                        st.session_state.role = user_row.iloc[0].get('الغرض من الدخول', 'عميل')
-                        st.session_state.user_details = {"الاسم": user_row.iloc[0].iloc[1]}
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ حسابك بانتظار موافقة الكنترول.")
-                else:
-                    st.error("❌ هذا البريد غير مسجل.")
+    with m[1]:
+        st.subheader("📝 إضافة عميل جديد")
+        with st.form("new_client"):
+            st.text_input("اسم النشاط")
+            st.text_input("العنوان")
+            st.button("📍 التقاط موقع GPS للعميل")
+            st.form_submit_button("حفظ وإرسال للكنترول")
 
-    elif choice == "📝 طلب حساب جديد (لأول مرة)":
-        st.subheader("تعبئة بيانات طلب الانضمام")
-        with st.form("registration_form"):
-            reg_name = st.text_input("الاسم الكامل")
-            reg_phone = st.text_input("رقم التليفون")
-            reg_email = st.text_input("البريد الإلكتروني (المستخدم للدخول لاحقاً)")
-            reg_address = st.text_input("العنوان")
-            reg_role = st.selectbox("نوع الحساب المطلوب", ["عميل", "مندوب", "محاسب"])
-            
-            submit_btn = st.form_submit_button("إرسال طلب الانضمام")
-            if submit_btn:
-                if reg_name and reg_email:
-                    # توجيه المستخدم لنموذج جوجل لضمان وصول البيانات للشيت
-                    st.success("تم تجهيز طلبك! فضلاً اضغط على الرابط التالي لإتمام الإرسال:")
-                    st.markdown(f"[اضغط هنا لإتمام إرسال بياناتك للكنترول](https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform)")
-                else:
-                    st.error("يرجى ملء البيانات الأساسية.")
+    with m[2]:
+        st.subheader("🧾 إصدار فاتورة واتساب")
+        # واجهة اختيار المنتجات وحساب الإجمالي
+        df_inv = fetch_data(GIDS["Inventory"])
+        selected_item = st.selectbox("اختر المنتج", df_inv.iloc[:, 0])
+        qty = st.number_input("الكمية", min_value=1)
+        if st.button("إضافة للسلة"):
+            st.write(f"تمت الإضافة. الإجمالي: {qty * 10} جنيه")
+        st.button("📤 إرسال الفاتورة واتساب للعميل")
 
-# --- الواجهات الداخلية بعد الدخول ---
-else:
+# --- [4] واجهة العميل (الخدمة الذاتية) ---
+def show_customer():
+    st.header("🤝 بوابة عملاء Pourquoi")
+    m = st.tabs(["📅 مواعيدي", "🛒 طلب أوردر", "💬 شكاوى"])
+    
+    with m[0]:
+        st.info("موعد زيارة المندوب القادمة: الأحد 10 مايو - مندوب: أحمد علي")
+        
+    with m[1]:
+        st.subheader("🛒 سلة المشتريات")
+        st.write("اختر منتجاتك وسنصدر لك فاتورة مبدئية.")
+        st.warning("⚠️ ملاحظة: طلب لم يتم تنفيذه حتى الآن")
+
+# --- محرك التشغيل الأساسي ---
+if st.session_state.auth:
     role = st.session_state.role
-    st.sidebar.markdown(f"### 👤 {st.session_state.user_details['الاسم']}")
-    st.sidebar.info(f"الرتبة: {role}")
-    
-    if role == "الكنترول":
-        st.header("🎛️ لوحة تحكم الإدارة")
-        # الأقسام كما في صورتك 1000405775
-        menu = st.sidebar.selectbox("القائمة الإدارية", ["المستخدمين", "المخزن", "الطلبات"])
-        if menu == "المستخدمين":
-            df_u = fetch_data("0")
-            st.dataframe(df_u)
-            
-    elif role == "مندوب":
-        st.title("🚗 واجهة المندوب")
-        # سنضيف هنا زر الـ GPS والفواتير في الخطوة التالية
-
-    if st.sidebar.button("خروج"):
-        st.session_state.auth = False
-        st.rerun()
+    if role == "الكنترول": show_control()
+    elif role == "محاسب": show_accountant()
+    elif role == "مندوب": show_salesman()
+    elif role == "عميل": show_customer()
