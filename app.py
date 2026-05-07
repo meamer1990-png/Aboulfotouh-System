@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# الروابط و الـ GIDs الخاصة بملفاتك
+# الإعدادات الأساسية
 BASE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4tUjdMv4rY_meyVWCwB7MYbSGMqBeMzQzXWvI1jNhna34oxOmpMwFPg-HGCmVO7gfLVbDQjCBCbEX/pub?output=csv"
 GIDS = {
     "Users": "0",
@@ -12,7 +12,7 @@ GIDS = {
     "Merchants": "162635924"
 }
 
-st.set_page_config(page_title="Pourquoi - إدارة مؤسسة أبوالفتوح", layout="wide")
+st.set_page_config(page_title="Pourquoi System", layout="wide")
 
 def fetch_data(gid):
     try:
@@ -22,68 +22,77 @@ def fetch_data(gid):
     except: return None
 
 if 'auth' not in st.session_state:
-    st.session_state.auth = False
-    st.session_state.role = None
-    st.session_state.user_details = None
+    st.session_state.auth, st.session_state.role, st.session_state.user_details = False, None, None
 
-# --- [1] واجهة الدخول والتسجيل ---
+# --- [1] واجهة الدخول ---
 if not st.session_state.auth:
-    st.title("🛡️ بوابة نظام Pourquoi")
-    choice = st.radio("اختر الإجراء:", ["🔑 دخول", "📝 تسجيل جديد"], horizontal=True)
-
-    if choice == "🔑 دخول":
-        login_id = st.text_input("الإيميل:").strip().lower()
-        if st.button("دخول النظام"):
-            # دخول الكنترول المباشر
-            if login_id in ["mamer2063@gmail.com", "meamer1990@gmail.com", "admin"]:
+    st.title("🛡️ بوابة Pourquoi")
+    login_id = st.text_input("الإيميل المعتمد:").strip().lower()
+    if st.button("دخول النظام"):
+        if login_id in ["mamer2063@gmail.com", "meamer1990@gmail.com", "admin"]:
+            st.session_state.auth, st.session_state.role, st.session_state.user_details = True, "الكنترول", {"الاسم": "د. محمد عصام"}
+            st.rerun()
+        df_u = fetch_data(GIDS["Users"])
+        if df_u is not None:
+            user = df_u[df_u.iloc[:, 2].astype(str).str.strip().str.lower() == login_id]
+            if not user.empty and str(user.iloc[0].get('Status', '')).lower() == 'approved':
                 st.session_state.auth = True
-                st.session_state.role = "الكنترول"
-                st.session_state.user_details = {"الاسم": "د. محمد عصام"}
+                st.session_state.role = user.iloc[0].get('الغرض من الدخول', 'عميل')
+                st.session_state.user_details = {"الاسم": user.iloc[0].iloc[1], "Email": login_id}
                 st.rerun()
-            
-            df_u = fetch_data(GIDS["Users"])
-            if df_u is not None:
-                user = df_u[df_u.iloc[:, 2].astype(str).str.strip().str.lower() == login_id]
-                if not user.empty and str(user.iloc[0].get('Status', '')).lower() == 'approved':
-                    st.session_state.auth = True
-                    st.session_state.role = user.iloc[0].get('الغرض من الدخول', 'عميل')
-                    st.session_state.user_details = {"الاسم": user.iloc[0].iloc[1]}
-                    st.rerun()
-                else: st.error("الحساب غير مفعل أو غير موجود")
+            else: st.error("الحساب غير مفعل")
 
-    else:
-        st.subheader("📝 طلب انضمام جديد")
-        st.info("سيتم تحويلك لنموذج التسجيل لإرسال بياناتك للإدارة.")
-        st.markdown(f"[اضغط هنا لفتح نموذج التسجيل](https://docs.google.com/forms/d/e/1FAIpQLSf3xBxqE0rDxeKJ8YuNZpdYckp8FKPt0eBiq1Sgevnp8ts9FQ/viewform)")
-
-# --- [2] واجهات النظام الداخلية ---
+# --- [2] واجهات النظام ---
 else:
     role = st.session_state.role
-    st.sidebar.title(f"👤 {st.session_state.user_details['الاسم']}")
-    st.sidebar.write(f"الرتبة: {role}")
+    st.sidebar.title(f"👤 {st.session_state.user_details['اسم المتقدم' if role != 'الكنترول' else 'الاسم']}")
+    st.sidebar.info(f"الرتبة: {role}")
 
     if role == "الكنترول":
-        st.header("🎛️ لوحة تحكم الإدارة")
-        tab1, tab2, tab3 = st.tabs(["👥 الحسابات", "📦 المخزن", "📩 الشكاوى"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 الأداء", "👥 الحسابات", "📦 المخزن", "📩 الشكاوى"])
         with tab1:
-            st.dataframe(fetch_data(GIDS["Users"]))
+            st.subheader("📈 تقييم الأداء العام")
+            st.write("مقارنة مبيعات المنتجات (يومي/شهري)")
         with tab2:
-            st.dataframe(fetch_data(GIDS["Inventory"]))
+            st.dataframe(fetch_data(GIDS["Users"]))
         with tab3:
-            st.write("صندوق الشكاوى السري")
+            st.dataframe(fetch_data(GIDS["Inventory"]))
+
+    elif role == "محاسب":
+        st.header("🧾 واجهة المحاسبة")
+        menu = st.sidebar.radio("المهام", ["إدارة المناديب", "خطوط السير", "التقارير"])
+        if menu == "خطوط السير":
+            st.subheader("🗓️ تعيين خط سير")
+            st.selectbox("اختر المندوب", ["أحمد", "محمود"]) # سيتم جلبهم من شيت Users
+            st.text_input("المدن المستهدفة")
+            st.button("تثبيت خط السير")
 
     elif role == "مندوب":
-        st.header("🚗 واجهة المندوب")
-        if st.button("📍 تسجيل وصول GPS"):
-            st.success("تم تأكيد الموقع والوقت بنجاح")
-        st.subheader("🧾 إصدار فاتورة")
-        # كود الفاتورة سيوضع هنا بالتفصيل
+        st.header("🚗 بوابة المندوب")
+        task = st.sidebar.radio("القائمة", ["📍 الزيارات اليومية", "📝 تسجيل عميل", "🧾 فاتورة"])
+        
+        if task == "📍 الزيارات اليومية":
+            st.subheader("تأكيد الوصول للعميل")
+            # محاكاة تسجيل الموقع
+            if st.button("📍 تسجيل وصول GPS"):
+                st.success(f"تم تسجيل الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M')} والموقع بنجاح.")
+        
+        elif task == "📝 تسجيل عميل":
+            with st.form("c_form"):
+                st.text_input("اسم المحل/التاجر")
+                st.text_input("العنوان")
+                st.button("📍 التقاط إحداثيات GPS")
+                st.form_submit_button("حفظ وإرسال للكنترول")
 
-    elif role == "عميل":
-        st.header("🤝 بوابة العميل")
-        st.info("موعد زيارتك القادمة: متاح في جدول الزيارات")
-        st.button("🛒 طلب أوردر جديد")
+        elif task == "🧾 فاتورة":
+            df_p = fetch_data(GIDS["Inventory"])
+            item = st.selectbox("المنتج", df_p.iloc[:, 0])
+            qty = st.number_input("الكمية", 1)
+            if st.button("إضافة"):
+                st.success("تمت الإضافة للسلة")
+            if st.button("📤 إرسال واتساب"):
+                st.info("جاري تجهيز الفاتورة بصيغة صورة...")
 
-    if st.sidebar.button("تسجيل الخروج"):
+    if st.sidebar.button("خروج"):
         st.session_state.auth = False
         st.rerun()
